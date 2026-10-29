@@ -79,7 +79,28 @@ function readManifest() {
 // If there are no issues, "pass" should be true and "findings" empty.
 // ============================================================
 function buildPrompt(diff, manifest) {
-  return `TODO: Check this project for design issues. Compare src/App.tsx against manifest.json. Flag anything not approved there, included deprecat variants.
+  return `You are a design QA reviewer. Check the pull request diff below against the component manifest below. The manifest is the only source of truth: you are not given any other files, so judge only what appears in the diff.
+
+What counts as an issue:
+- A line the diff adds or changes (lines starting with "+") that breaks something in the manifest: an entry in "rules", "accessibilityRules", or "responsiveRules", a deprecated variant listed under "deprecatedVariants", or a variant/size not listed under "approvedVariants"/"approvedSizes".
+- Nothing else. Do not flag general style opinions or anything the manifest does not cover. Do not flag removed lines or unchanged context lines.
+- Only review UI source files (e.g. .tsx, .jsx, .css, .html). Ignore changes to manifest.json, scripts, and config files.
+- The "spacingScale" keys are Tailwind utility suffixes, so classes like p-md, py-xl, gap-lg, and pt-sm are correct, approved usage. Do not flag them.
+
+Work through every added line and check it against every rule in the manifest, one rule at a time, before deciding. Do not stop after the first few findings.
+
+For each issue, report the file path, the line number in the new version of the file (count from the "+start" number in the @@ hunk header), what is wrong, and which manifest rule it breaks and why.
+
+If the diff contains no UI changes, or no issues, that is a pass.
+
+Your entire response must be a single JSON object. Do not write anything before or after it: no explanation, no markdown fences. Put any explanation inside the "reasoning" fields. Use exactly this shape:
+{
+  "pass": true or false,
+  "findings": [
+    { "file": "src/App.tsx", "line": "40", "issue": "short description", "reasoning": "which manifest rule this breaks and why" }
+  ]
+}
+"pass" is true only when "findings" is empty.
 
 Manifest:
 ${manifest}
@@ -127,7 +148,8 @@ async function checkDesignCompliance(diff, manifest) {
   const text = data.content?.[0]?.text ?? "";
 
   try {
-    const cleaned = text.replace(/```json\n?|```\n?/g, "").trim();
+    // Take the outermost {...} so stray prose or fences around the JSON don't break parsing.
+    const cleaned = text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
     const result = JSON.parse(cleaned);
     return {
       pass: result.pass === true,
