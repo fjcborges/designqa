@@ -20,7 +20,7 @@ import fs from "node:fs";
 
 // --- Placeholders — update these to match your repo structure ---
 const PLACEHOLDER_MANIFEST_PATH = "./manifest.json"; // now pointed at the real manifest
-const CLAUDE_MODEL = "claude-haiku-4-5-20251001"; // swap for 'claude-sonnet-5' if you want stronger reasoning
+const CLAUDE_MODEL = "claude-sonnet-5-5"; // claude-haiku-5-5 is cheaper but less precise on line numbers
 
 // ============================================================
 // ALREADY WIRED — fetch the PR diff
@@ -79,13 +79,55 @@ function readManifest() {
 // If there are no issues, "pass" should be true and "findings" empty.
 // ============================================================
 function buildPrompt(diff, manifest) {
-  return `TODO: write your prompt here.
+  return `You are a design QA reviewer. Check the pull request diff below against the component manifest below. The manifest is the only source of truth: you are not given any other files, so judge only what appears in the diff.
+
+What counts as an issue:
+- A line the diff adds or changes (lines starting with "+") that breaks something in the manifest: an entry in "rules", "accessibilityRules", or "responsiveRules", a deprecated variant listed under "deprecatedVariants", or a variant/size not listed under "approvedVariants"/"approvedSizes".
+- Nothing else. Do not flag general style opinions or anything the manifest does not cover. Do not flag removed lines or unchanged context lines.
+- Only review UI source files (e.g. .tsx, .jsx, .css, .html). Ignore changes to manifest.json, scripts, and config files.
+- The "spacingScale" keys are Tailwind utility suffixes, so classes like p-md, py-xl, gap-lg, and pt-sm are correct, approved usage. Do not flag them.
+
+Work through every added line and check it against every rule in the manifest, one rule at a time, before deciding. Do not stop after the first few findings.
+
+For each issue, report the file path, the line number in the new version of the file (count from the "+start" number in the @@ hunk header), what is wrong, and which manifest rule it breaks and why.
+
+Only list actual violations. Every finding must quote the exact offending code from an added line and the exact manifest text it breaks; if you can't point to both, it is not a finding. Never include compliant code as a finding, and never flag a class just because it isn't in default Tailwind: the project defines its own tokens.
+
+If the diff contains no UI changes, or no issues, that is a pass.
+
+Settle on your answer before writing it. Your entire response must be a single JSON object, written once. Do not write anything before or after it: no explanation, no markdown fences, no revised second answer. Put any explanation inside the "reasoning" fields. Use exactly this shape:
+{
+  "pass": true or false,
+  "findings": [
+    { "file": "src/App.tsx", "line": "40", "issue": "short description", "reasoning": "which manifest rule this breaks and why" }
+  ]
+}
+"pass" is true only when "findings" is empty.
 
 Manifest:
 ${manifest}
 
 Diff:
 ${diff}`;
+}
+
+// If the model revises itself it can emit several JSON objects; the last
+// one that parses and has a "pass" field is its final answer.
+function extractLastResult(text) {
+  const starts = [...text.matchAll(/\{\s*"pass"/g)].map((m) => m.index).reverse();
+  for (const start of starts) {
+    let end = text.lastIndexOf("}");
+    while (end > start) {
+      try {
+        const result = JSON.parse(text.slice(start, end + 1));
+        if ("pass" in result) return result;
+      } catch {
+        // Not valid JSON at this end position; try an earlier closing brace.
+      }
+      end = text.lastIndexOf("}", end - 1);
+    }
+  }
+  throw new Error("No JSON result object found");
 }
 
 // ============================================================
@@ -104,7 +146,7 @@ async function checkDesignCompliance(diff, manifest) {
     },
     body: JSON.stringify({
       model: CLAUDE_MODEL,
-      max_tokens: 1024,
+      max_tokens: 8192,
       messages: [{ role: "user", content: prompt }],
     }),
   });
@@ -124,11 +166,14 @@ async function checkDesignCompliance(diff, manifest) {
     };
   }
 
-  const text = data.content?.[0]?.text ?? "";
+  // Newer models may return a thinking block before the text, so don't assume content[0].
+  const text = (data.content ?? [])
+    .filter((block) => block.type === "text")
+    .map((block) => block.text)
+    .join("\n");
 
   try {
-    const cleaned = text.replace(/```json\n?|```\n?/g, "").trim();
-    const result = JSON.parse(cleaned);
+    const result = extractLastResult(text);
     return {
       pass: result.pass === true,
       findings: Array.isArray(result.findings) ? result.findings : [],

@@ -31,21 +31,23 @@ function App() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border">
-        <div className="flex items-center justify-between px-6 py-4 max-w-5xl mx-auto">
+        <div className="flex items-center justify-between px-md py-sm max-w-5xl mx-auto">
           <span className="font-semibold">Meridian & Co.</span>
-          <nav className="flex items-center gap-4">
+          <nav className="flex items-center gap-sm">
             <a href="#" className="text-sm text-muted-foreground hover:text-foreground">
               Shop
             </a>
-            <Button variant="ghost">Sign in</Button>
-            <Button variant="outline" size="sm">
+            <Button variant="outline">
+              Sign in
+            </Button>
+            <Button variant="outline" size="sm" aria-label="Cart">
               <ShoppingCart />
             </Button>
           </nav>
         </div>
       </header>
 
-      <section className="grid grid-cols-1 md:grid-cols-2 items-center gap-lg px-6 py-xl max-w-5xl mx-auto">
+      <section className="grid grid-cols-1 md:grid-cols-2 items-center gap-lg px-md py-xl max-w-5xl mx-auto">
         <div className="flex flex-col items-start text-left gap-md">
           <Badge variant="secondary">New: Fall collection</Badge>
           <h1 className="text-4xl font-bold tracking-tight">
@@ -57,15 +59,15 @@ function App() {
           </p>
           <div className="flex items-center gap-sm pt-sm">
             <Button size="lg">Shop now</Button>
-            <button className="h-10 rounded-md px-8 text-sm font-medium border border-border bg-background hover:bg-accent">
+            <Button variant="outline" size="lg">
               View collection
-            </button>
+            </Button>
           </div>
-          <p style={{ color: "#6b7280" }} className="text-sm pt-xs">
+          <p className="text-sm text-muted-foreground pt-xs">
             Trusted by over 2 million shoppers worldwide
           </p>
         </div>
-        <div className="flex aspect-square w-112 items-center justify-center rounded-lg bg-secondary">
+        <div className="flex aspect-square w-full max-w-112 items-center justify-center rounded-lg bg-secondary">
           <ShoppingBag
             className="size-24 text-muted-foreground"
             strokeWidth={1}
@@ -73,7 +75,7 @@ function App() {
         </div>
       </section>
 
-      <section className="px-6 py-[37px] grid grid-cols-3 gap-md max-w-5xl mx-auto">
+      <section className="px-md py-lg grid grid-cols-1 md:grid-cols-3 gap-md max-w-5xl mx-auto">
         {categories.map((category) => (
           <Card key={category.title}>
             <CardHeader>
@@ -90,7 +92,7 @@ function App() {
         ))}
       </section>
 
-      <section className="flex flex-col items-center text-center px-6 py-xl gap-sm border-t border-border">
+      <section className="flex flex-col items-center text-center px-md py-xl gap-sm border-t border-border">
         <h2 className="text-2xl font-semibold">Ready to start shopping?</h2>
         <p className="text-muted-foreground max-w-96">
           Create an account for free shipping and order tracking.
@@ -99,6 +101,7 @@ function App() {
           <input
             type="email"
             placeholder="Email address"
+            aria-label="Email address"
             className="h-10 rounded-md border border-border bg-background px-sm text-sm"
           />
           <Button size="lg">Create your account</Button>
@@ -106,7 +109,7 @@ function App() {
       </section>
 
       <footer className="border-t border-border">
-        <div className="px-6 py-md text-center text-sm text-muted-foreground max-w-5xl mx-auto">
+        <div className="px-md py-md text-center text-sm text-muted-foreground max-w-5xl mx-auto">
           © 2026 Meridian & Co.
         </div>
       </footer>
